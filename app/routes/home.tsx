@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import type { Route } from "./+types/home";
 import { Button } from "~/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import {
   User,
   Moon,
   Sun,
+  type LucideIcon,
 } from "lucide-react";
 import { CourseImage } from "~/components/course-image";
 import { DevUI } from "~/components/dev-ui";
@@ -115,8 +116,41 @@ function getLessonCountForCourse(courseId: number) {
   return count?.count ?? 0;
 }
 
-const statTileLinkClass =
-  "group rounded-lg p-4 text-center transition-colors hover:bg-background";
+// `to` is optional so a tile whose target is not on the page (the Categories
+// tile when no category is browsable) renders as plain text, not a dead link.
+function StatTile({
+  to,
+  icon: Icon,
+  value,
+  label,
+}: {
+  to?: string;
+  icon: LucideIcon;
+  value: ReactNode;
+  label: string;
+}) {
+  const body = (
+    <>
+      <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
+        <Icon className="size-6 text-primary" />
+      </div>
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-sm text-muted-foreground group-hover:text-primary">
+        {label}
+      </p>
+    </>
+  );
+  return to ? (
+    <Link
+      to={to}
+      className="group rounded-lg p-4 text-center transition-colors hover:bg-background"
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className="p-4 text-center">{body}</div>
+  );
+}
 
 export function meta() {
   return [
@@ -257,33 +291,23 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       <section className="border-y border-border bg-muted/50 py-16">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-6 sm:grid-cols-3">
-          <Link to="/courses" className={statTileLinkClass}>
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
-              <BookOpen className="size-6 text-primary" />
-            </div>
-            <p className="text-2xl font-bold">{totalCourses}</p>
-            <p className="text-sm text-muted-foreground group-hover:text-primary">
-              Available Courses
-            </p>
-          </Link>
-          <a href="#categories" className={statTileLinkClass}>
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
-              <GraduationCap className="size-6 text-primary" />
-            </div>
-            <p className="text-2xl font-bold">{categories.length}</p>
-            <p className="text-sm text-muted-foreground group-hover:text-primary">
-              Categories
-            </p>
-          </a>
-          <div className="text-center">
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
-              <Users className="size-6 text-primary" />
-            </div>
-            <p className="text-2xl font-bold">Self-paced</p>
-            <p className="text-sm text-muted-foreground">
-              Learn on your schedule
-            </p>
-          </div>
+          <StatTile
+            to="/courses"
+            icon={BookOpen}
+            value={totalCourses}
+            label="Available Courses"
+          />
+          <StatTile
+            to={categories.length > 0 ? "#categories" : undefined}
+            icon={GraduationCap}
+            value={categories.length}
+            label="Categories"
+          />
+          <StatTile
+            icon={Users}
+            value="Self-paced"
+            label="Learn on your schedule"
+          />
         </div>
       </section>
 
