@@ -25,6 +25,8 @@ import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
 import { eq, like, and, or, sql } from "drizzle-orm";
 import { db } from "~/db";
 import { courses, categories, users, modules, lessons } from "~/db/schema";
+import { catalog } from "~/modules/catalog/index.server";
+import { catalogUrlForCategory } from "~/modules/catalog";
 
 function getAllUsers() {
   return db.select().from(users).all();
@@ -32,10 +34,6 @@ function getAllUsers() {
 
 function getUserById(id: number) {
   return db.select().from(users).where(eq(users.id, id)).get();
-}
-
-function getAllCategories() {
-  return db.select().from(categories).orderBy(categories.name).all();
 }
 
 function buildCourseQuery(
@@ -117,6 +115,9 @@ function getLessonCountForCourse(courseId: number) {
   return count?.count ?? 0;
 }
 
+const statTileLinkClass =
+  "group rounded-lg p-4 text-center transition-colors hover:bg-background";
+
 export function meta() {
   return [
     { title: "Cadence — Learn at your own pace" },
@@ -141,7 +142,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     ...course,
     lessonCount: getLessonCountForCourse(course.id),
   }));
-  const categories = getAllCategories();
+  const categories = catalog.listBrowsableCategories();
   const users = getAllUsers();
   const currentUserId = await getCurrentUserId(request);
   const currentUser = currentUserId ? getUserById(currentUserId) : null;
@@ -151,7 +152,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   return {
     featuredCourses: featured,
     totalCourses: courses.length,
-    totalCategories: categories.length,
+    categories,
     users: users.map((u) => ({ id: u.id, name: u.name, role: u.role })),
     currentUser: currentUser
       ? { id: currentUser.id, name: currentUser.name, role: currentUser.role }
@@ -166,7 +167,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const {
     featuredCourses,
     totalCourses,
-    totalCategories,
+    categories,
     users,
     currentUser,
     devCountry,
@@ -256,20 +257,24 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
       <section className="border-y border-border bg-muted/50 py-16">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-6 sm:grid-cols-3">
-          <div className="text-center">
+          <Link to="/courses" className={statTileLinkClass}>
             <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
               <BookOpen className="size-6 text-primary" />
             </div>
             <p className="text-2xl font-bold">{totalCourses}</p>
-            <p className="text-sm text-muted-foreground">Available Courses</p>
-          </div>
-          <div className="text-center">
+            <p className="text-sm text-muted-foreground group-hover:text-primary">
+              Available Courses
+            </p>
+          </Link>
+          <a href="#categories" className={statTileLinkClass}>
             <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
               <GraduationCap className="size-6 text-primary" />
             </div>
-            <p className="text-2xl font-bold">{totalCategories}</p>
-            <p className="text-sm text-muted-foreground">Categories</p>
-          </div>
+            <p className="text-2xl font-bold">{categories.length}</p>
+            <p className="text-sm text-muted-foreground group-hover:text-primary">
+              Categories
+            </p>
+          </a>
           <div className="text-center">
             <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
               <Users className="size-6 text-primary" />
@@ -281,6 +286,36 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </div>
         </div>
       </section>
+
+      {categories.length > 0 && (
+        <section
+          id="categories"
+          className="mx-auto max-w-6xl scroll-mt-8 px-6 pt-20"
+        >
+          <h2 className="text-3xl font-bold tracking-tight">
+            Browse by Category
+          </h2>
+          <p className="mt-2 text-muted-foreground">
+            Pick a topic to see every course in it
+          </p>
+          <ul className="mt-8 flex flex-wrap gap-3">
+            {categories.map((category) => (
+              <li key={category.id}>
+                <Link
+                  to={catalogUrlForCategory(category.slug)}
+                  className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:border-primary hover:text-primary"
+                >
+                  {category.name}
+                  <span className="text-xs text-muted-foreground">
+                    {category.courseCount}{" "}
+                    {category.courseCount === 1 ? "course" : "courses"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {featuredCourses.length > 0 && (
         <section className="mx-auto max-w-6xl px-6 py-20">
