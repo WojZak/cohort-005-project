@@ -19,4 +19,6 @@ export function createCatalog(database: Db) {
   };
 }
 
-export const catalog = createCatalog(db);
+// Pure so a route importing this only for its loader doesn't pull the
+// database into the client bundle (see `~/db`).
+export const catalog = /* @__PURE__ */ createCatalog(db);
