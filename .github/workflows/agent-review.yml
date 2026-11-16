@@ -170,6 +170,16 @@ jobs:
           npm run db:migrate
           npm run db:seed
 
+      - name: Start the app and install agent-browser
+        # The agent checks the UI with agent-browser. Doing this here saves it
+        # finding out the tool is missing, installing it, and hunting the port.
+        run: |
+          set -euo pipefail
+          npm install -g agent-browser
+          agent-browser install
+          nohup npm run dev > /tmp/dev.log 2>&1 &
+          timeout 60 bash -c 'until curl -sf -o /dev/null http://localhost:5173/; do sleep 1; done'
+
       - name: Open the branch
         run: |
           set -euo pipefail
@@ -187,6 +197,8 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           OUTPUT_DIR: ${{ runner.temp }}
+          # The branch starts at the PR head, so the reflog base would be HEAD.
+          MUTATION_BASE: origin/${{ github.event.pull_request.base.ref }}
         run: npx tsx .sandcastle/agent-workflows/review/review.ts
 
       - name: Push the review's fixes

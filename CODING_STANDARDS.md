@@ -42,6 +42,10 @@ Test setup calls the module's own functions. When the function you need does
 not exist, add it to the module rather than inserting rows directly, so a
 change to how the module stores its data leaves its tests alone.
 
+This holds when the writes still live in a route: add the writer to the
+module and move the route's write behind it. A fixture comment explaining why
+the rows go in directly does not make the direct insert acceptable.
+
 ## Keep files under 5000 tokens
 
 Keep every file under 5000 tokens.
@@ -63,6 +67,23 @@ notes loader ran one query per lesson, forty lessons per course.
 A query with no limit is fine on a seeded database and fatal on a real one.
 If the row count is a function of how long the product has been alive, add a
 limit. The instructor's students page timed out on the first big course.
+
+A table that a person curates by hand, such as categories, does not grow with
+the product's age. It needs no limit, but the query carries a one-line comment
+saying why it is bounded, so the exception is on record.
+
+## A link keeps its promise
+
+A link's target is on the page whenever the link is: an anchor to a section
+that is not rendered goes nowhere. A count shown on a link agrees with the
+page it opens: the same filter and the same cap. "60 courses" that opens a
+list capped at 50 is a broken promise.
+
+## A visible number keeps its meaning
+
+Changing what a number the user sees counts (every category, or only the ones
+with a published course) is a product decision. Call it out in the PR's Merge
+Danger section; do not slip it in as part of another change.
 
 ## Soft-delete anything a person can point at
 
