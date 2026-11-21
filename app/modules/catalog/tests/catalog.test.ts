@@ -1,57 +1,24 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createTestDb, type TestDb } from "~/test/setup";
-import * as schema from "~/db/schema";
-import { CourseStatus, UserRole } from "~/db/schema";
-import { markdown } from "~/lib/text";
+import { CourseStatus } from "~/db/schema";
 import { createCatalog } from "../index.server";
 import { catalogUrlForCategory } from "../index";
+import { catalogFixtures } from "./fixtures";
 
 let db: TestDb;
-let instructorId: number;
+let fixtures: ReturnType<typeof catalogFixtures>;
 
 beforeEach(() => {
   db = createTestDb();
-  instructorId = db
-    .insert(schema.users)
-    .values({
-      name: "Ina Instructor",
-      email: "ina@example.com",
-      role: UserRole.Instructor,
-    })
-    .returning()
-    .get().id;
+  fixtures = catalogFixtures(db);
 });
 
-// ─── Fixtures ───
-// Categories and courses are written by admin and instructor routes, not by a
-// module yet, so rows go in directly. Kept here so a schema change touches
-// only this block.
-
 function addCategory(name: string) {
-  return db
-    .insert(schema.categories)
-    .values({ name, slug: name.toLowerCase().replaceAll(" ", "-") })
-    .returning()
-    .get();
+  return fixtures.addCategory(name);
 }
 
-let slugCounter = 0;
-
 function addCourse(categoryId: number, status: CourseStatus) {
-  slugCounter += 1;
-  return db
-    .insert(schema.courses)
-    .values({
-      title: `Course ${slugCounter}`,
-      slug: `course-${slugCounter}`,
-      description: "A course",
-      salesCopy: markdown("Sales copy"),
-      instructorId,
-      categoryId,
-      status,
-    })
-    .returning()
-    .get();
+  return fixtures.addCourse({ categoryId, status });
 }
 
 describe("listBrowsableCategories", () => {
@@ -105,6 +72,68 @@ describe("listBrowsableCategories", () => {
 
   it("returns nothing when there are no categories", () => {
     expect(createCatalog(db).listBrowsableCategories()).toEqual([]);
+  });
+});
+
+describe("createCategory", () => {
+  it("derives the slug from the name", () => {
+    expect(createCatalog(db).createCategory("C++ & Go!")).toEqual(
+      expect.objectContaining({ name: "C++ & Go!", slug: "c-go" })
+    );
+  });
+
+  it("refuses a name that is taken", () => {
+    addCategory("Web");
+
+    expect(() => createCatalog(db).createCategory("Web")).toThrow(
+      'A category with the name "Web" already exists.'
+    );
+  });
+
+  it("refuses a name whose slug is taken", () => {
+    addCategory("Web Dev");
+
+    expect(() => createCatalog(db).createCategory("web dev")).toThrow(
+      'A category with the slug "web-dev" already exists.'
+    );
+  });
+});
+
+describe("renameCategory", () => {
+  it("renames the category and re-derives its slug", () => {
+    const web = addCategory("Web");
+
+    expect(createCatalog(db).renameCategory(web.id, "Web Dev")).toEqual({
+      id: web.id,
+      name: "Web Dev",
+      slug: "web-dev",
+    });
+  });
+
+  it("keeps the category's own name", () => {
+    const web = addCategory("Web");
+
+    expect(createCatalog(db).renameCategory(web.id, "Web")).toEqual(
+      expect.objectContaining({ slug: "web" })
+    );
+  });
+
+  it("refuses a name another category holds", () => {
+    addCategory("Web");
+    const data = addCategory("Data");
+
+    expect(() => createCatalog(db).renameCategory(data.id, "Web")).toThrow(
+      'A category with the name "Web" already exists.'
+    );
+  });
+
+  it("refuses a slug another category holds", () => {
+    addCategory("Web Dev");
+    const data = addCategory("Data");
+
+    expect(() => createCatalog(db).renameCategory(data.id, "web dev")).toThrow(
+      'A category with the slug "web-dev" already exists.'
+    );
   });
 });
 

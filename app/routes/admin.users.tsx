@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import type { Route } from "./+types/admin.users";
 import { people } from "~/modules/permissions/person.server";
+import { accounts } from "~/modules/accounts/index.server";
 import { parseFormData } from "~/lib/validation";
 import { UserRole, users } from "~/db/schema";
 import { db } from "~/db";
@@ -59,15 +60,6 @@ function updateUser(
     .get();
 }
 
-function updateUserRole(id: number, role: UserRole) {
-  return db
-    .update(users)
-    .set({ role })
-    .where(eq(users.id, id))
-    .returning()
-    .get();
-}
-
 export function meta() {
   return [
     { title: "Manage Users — Cadence" },
@@ -108,7 +100,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   if (intent === "update-role") {
     const { userId, role } = parsed.data;
-    updateUserRole(userId, role);
+    accounts.changeRole(userId, role);
     return { success: true };
   }
 

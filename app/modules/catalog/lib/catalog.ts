@@ -29,3 +29,52 @@ export function listBrowsableCategories(db: Db): BrowsableCategory[] {
     .orderBy(categories.name)
     .all();
 }
+
+function slugify(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function getCategoryBySlug(db: Db, slug: string) {
+  return db.select().from(categories).where(eq(categories.slug, slug)).get();
+}
+
+function getCategoryByName(db: Db, name: string) {
+  return db.select().from(categories).where(eq(categories.name, name)).get();
+}
+
+// The slug is derived from the name, so two names can collide on one slug;
+// both are checked so the admin sees which one is taken.
+function assertCategoryNameFree(
+  db: Db,
+  { name, slug }: { name: string; slug: string },
+  id?: number
+) {
+  const byName = getCategoryByName(db, name);
+  if (byName && byName.id !== id) {
+    throw new Error(`A category with the name "${name}" already exists.`);
+  }
+  const bySlug = getCategoryBySlug(db, slug);
+  if (bySlug && bySlug.id !== id) {
+    throw new Error(`A category with the slug "${slug}" already exists.`);
+  }
+}
+
+export function createCategory(db: Db, name: string) {
+  const slug = slugify(name);
+  assertCategoryNameFree(db, { name, slug });
+  return db.insert(categories).values({ name, slug }).returning().get();
+}
+
+export function renameCategory(db: Db, id: number, name: string) {
+  const slug = slugify(name);
+  assertCategoryNameFree(db, { name, slug }, id);
+  return db
+    .update(categories)
+    .set({ name, slug })
+    .where(eq(categories.id, id))
+    .returning()
+    .get();
+}
