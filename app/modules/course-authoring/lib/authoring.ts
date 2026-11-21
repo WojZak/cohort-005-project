@@ -56,11 +56,11 @@ export function changeCourseStatus(
 // A new module or lesson goes after the last one, so the instructor sees it
 // where they expect it: at the bottom of the list they added it to.
 export function addModule(db: Db, courseId: number, title: string) {
-  const { max } = db
+  const [{ max }] = db
     .select({ max: sql<number>`coalesce(max(${modules.position}), 0)` })
     .from(modules)
     .where(eq(modules.courseId, courseId))
-    .get() ?? { max: 0 };
+    .all();
 
   return db
     .insert(modules)
@@ -70,11 +70,11 @@ export function addModule(db: Db, courseId: number, title: string) {
 }
 
 export function addLesson(db: Db, moduleId: number, title: string) {
-  const { max } = db
+  const [{ max }] = db
     .select({ max: sql<number>`coalesce(max(${lessons.position}), 0)` })
     .from(lessons)
     .where(eq(lessons.moduleId, moduleId))
-    .get() ?? { max: 0 };
+    .all();
 
   return db
     .insert(lessons)
