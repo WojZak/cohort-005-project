@@ -4,8 +4,6 @@ Your ticket is /tmp/ticket.md: the issue, then comments from people with write
 access, including the explore run's findings. Read those findings before you
 open any code. Build the ticket, and only the ticket.
 
-Read CODING_STANDARDS.md.
-
 - Behaviour goes in a deep module under app/modules/, behind an entry point a
   test can call, never inline in a loader.
 - Ship tests with the code. End with more passing tests than you started
@@ -19,7 +17,9 @@ Read CODING_STANDARDS.md.
   pushes and opens the pull request.
 - Leave `.github/` untouched.
 - When the change shows in the UI, save a before and an after screenshot as
-  PNGs in /tmp/evidence/.
+  PNGs in /tmp/evidence/. The app is already running at
+  http://localhost:5173 (logs in /tmp/dev.log), and agent-browser is
+  installed.
 
 Write /tmp/pr-body.md in the voice of the `pr` skill: what the ticket asked
 for, what you built, what you deliberately left out. In its Evidence section,

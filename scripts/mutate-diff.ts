@@ -92,8 +92,17 @@ function git(args: string[], { optional = false } = {}): string[] {
  * If not, it is the merge base with `origin/main`, then with `main`. A clone
  * with neither gets null. The script then examines only the uncommitted
  * changes, which is still a usable result.
+ *
+ * MUTATION_BASE overrides all of that. The factory workflows set it: they
+ * create their branch at the commit under review, so the reflog base is HEAD
+ * and the diff would hold nothing once the work is committed.
  */
 function findDiffBase(): string | null {
+  const override = process.env.MUTATION_BASE;
+  if (override) {
+    const [sha] = git(["merge-base", "HEAD", override]);
+    return sha ?? null;
+  }
   const branch = git(["symbolic-ref", "--quiet", "--short", "HEAD"], {
     optional: true,
   })[0];
