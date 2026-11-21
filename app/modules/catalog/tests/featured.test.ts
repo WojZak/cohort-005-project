@@ -1,74 +1,26 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createTestDb, type TestDb } from "~/test/setup";
-import * as schema from "~/db/schema";
-import { CourseStatus, UserRole } from "~/db/schema";
-import { markdown } from "~/lib/text";
+import { CourseStatus } from "~/db/schema";
 import { createCatalog } from "../index.server";
 import { CATALOG_PAGE_SIZE } from "../index";
+import { catalogFixtures } from "./fixtures";
 
 let db: TestDb;
-let instructorId: number;
+let fixtures: ReturnType<typeof catalogFixtures>;
 let categoryId: number;
 
 beforeEach(() => {
   db = createTestDb();
-  instructorId = db
-    .insert(schema.users)
-    .values({
-      name: "Ina Instructor",
-      email: "ina@example.com",
-      role: UserRole.Instructor,
-    })
-    .returning()
-    .get().id;
-  categoryId = db
-    .insert(schema.categories)
-    .values({ name: "Web Development", slug: "web-development" })
-    .returning()
-    .get().id;
+  fixtures = catalogFixtures(db);
+  categoryId = fixtures.addCategory("Web Development").id;
 });
 
-// ─── Fixtures ───
-// Courses, modules and lessons are written by instructor routes, not by a
-// module yet, so rows go in directly. Kept here so a schema change touches
-// only this block.
-
-let slugCounter = 0;
-
-function addCourse(
-  status: CourseStatus,
-  createdAt: string,
-  title = `Course ${slugCounter + 1}`
-) {
-  slugCounter += 1;
-  return db
-    .insert(schema.courses)
-    .values({
-      title,
-      slug: `course-${slugCounter}`,
-      description: "A course",
-      salesCopy: markdown("Sales copy"),
-      instructorId,
-      categoryId,
-      status,
-      coverImageUrl: `/covers/${slugCounter}.png`,
-      createdAt,
-    })
-    .returning()
-    .get();
+function addCourse(status: CourseStatus, createdAt: string, title?: string) {
+  return fixtures.addCourse({ categoryId, status, createdAt, title });
 }
 
 function addModuleWithLessons(courseId: number, lessonCount: number) {
-  const moduleId = db
-    .insert(schema.modules)
-    .values({ courseId, title: "Module", position: 1 })
-    .returning()
-    .get().id;
-  for (let position = 1; position <= lessonCount; position += 1) {
-    db.insert(schema.lessons)
-      .values({ moduleId, title: `Lesson ${position}`, position })
-      .run();
-  }
+  fixtures.addModuleWithLessons(courseId, lessonCount);
 }
 
 describe("listFeaturedCourses", () => {

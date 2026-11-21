@@ -1,5 +1,10 @@
 import { db } from "~/db";
-import { listBrowsableCategories, type Db } from "./lib/catalog";
+import {
+  createCategory,
+  listBrowsableCategories,
+  renameCategory,
+  type Db,
+} from "./lib/catalog";
 import { countCatalogPageCourses, listFeaturedCourses } from "./lib/featured";
 
 export type { BrowsableCategory } from "./lib/catalog";
@@ -33,6 +38,22 @@ export function createCatalog(database: Db) {
      */
     countCatalogPageCourses() {
       return countCatalogPageCourses(database);
+    },
+
+    /**
+     * A new category, its slug derived from the name. Throws when the name
+     * or the slug is taken.
+     */
+    createCategory(name: string) {
+      return createCategory(database, name);
+    },
+
+    /**
+     * Renames a category and re-derives its slug. Throws when another
+     * category holds the name or the slug.
+     */
+    renameCategory(id: number, name: string) {
+      return renameCategory(database, id, name);
     },
   };
 }
