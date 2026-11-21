@@ -8,6 +8,7 @@ import {
   users,
 } from "~/db/schema";
 import type { Db } from "./catalog";
+import { CATALOG_PAGE_SIZE } from "./catalog-url";
 
 export type FeaturedCourse = {
   id: number;
@@ -46,11 +47,11 @@ export function listFeaturedCourses(db: Db, limit: number): FeaturedCourse[] {
     .all();
 }
 
-export function countPublishedCourses(db: Db): number {
+export function countCatalogPageCourses(db: Db): number {
   const [{ total }] = db
     .select({ total: count(courses.id) })
     .from(courses)
     .where(eq(courses.status, CourseStatus.Published))
     .all();
-  return total;
+  return Math.min(total, CATALOG_PAGE_SIZE);
 }

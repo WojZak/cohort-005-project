@@ -30,6 +30,7 @@ import { formatPrice } from "~/lib/utils";
 import { resolveCountry } from "~/lib/country.server";
 import { calculatePppPrice } from "~/lib/ppp";
 import { StarRating } from "~/components/star-rating";
+import { CATALOG_PAGE_SIZE } from "~/modules/catalog";
 
 function buildCourseQuery(
   search: string | null,
@@ -291,7 +292,7 @@ export async function loader({ request, url }: Route.LoaderArgs) {
     category,
     CourseStatus.Published,
     "newest",
-    50,
+    CATALOG_PAGE_SIZE,
     0
   );
 

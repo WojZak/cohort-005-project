@@ -1,6 +1,6 @@
 import { db } from "~/db";
 import { listBrowsableCategories, type Db } from "./lib/catalog";
-import { countPublishedCourses, listFeaturedCourses } from "./lib/featured";
+import { countCatalogPageCourses, listFeaturedCourses } from "./lib/featured";
 
 export type { BrowsableCategory } from "./lib/catalog";
 export type { FeaturedCourse } from "./lib/featured";
@@ -27,9 +27,12 @@ export function createCatalog(database: Db) {
       return listFeaturedCourses(database, limit);
     },
 
-    /** How many courses are published. Drafts and archived are not counted. */
-    countPublishedCourses() {
-      return countPublishedCourses(database);
+    /**
+     * How many published courses the unfiltered catalog page lists: every
+     * published course, capped at `CATALOG_PAGE_SIZE` as the page is.
+     */
+    countCatalogPageCourses() {
+      return countCatalogPageCourses(database);
     },
   };
 }

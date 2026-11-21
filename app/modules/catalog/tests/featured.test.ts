@@ -4,6 +4,7 @@ import * as schema from "~/db/schema";
 import { CourseStatus, UserRole } from "~/db/schema";
 import { markdown } from "~/lib/text";
 import { createCatalog } from "../index.server";
+import { CATALOG_PAGE_SIZE } from "../index";
 
 let db: TestDb;
 let instructorId: number;
@@ -150,17 +151,25 @@ describe("listFeaturedCourses", () => {
   });
 });
 
-describe("countPublishedCourses", () => {
+describe("countCatalogPageCourses", () => {
   it("counts only published courses", () => {
     addCourse(CourseStatus.Published, "2026-01-01T00:00:00.000Z");
     addCourse(CourseStatus.Published, "2026-01-02T00:00:00.000Z");
     addCourse(CourseStatus.Draft, "2026-01-03T00:00:00.000Z");
     addCourse(CourseStatus.Archived, "2026-01-04T00:00:00.000Z");
 
-    expect(createCatalog(db).countPublishedCourses()).toBe(2);
+    expect(createCatalog(db).countCatalogPageCourses()).toBe(2);
+  });
+
+  it("caps at the catalog page size, as the catalog page does", () => {
+    for (let i = 0; i <= CATALOG_PAGE_SIZE; i += 1) {
+      addCourse(CourseStatus.Published, "2026-01-01T00:00:00.000Z");
+    }
+
+    expect(createCatalog(db).countCatalogPageCourses()).toBe(CATALOG_PAGE_SIZE);
   });
 
   it("is zero with no courses", () => {
-    expect(createCatalog(db).countPublishedCourses()).toBe(0);
+    expect(createCatalog(db).countCatalogPageCourses()).toBe(0);
   });
 });

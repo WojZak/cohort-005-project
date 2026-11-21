@@ -71,7 +71,7 @@ export function meta() {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const featured = catalog.listFeaturedCourses(FEATURED_COURSE_LIMIT);
-  const totalCourses = catalog.countPublishedCourses();
+  const totalCourses = catalog.countCatalogPageCourses();
   const categories = catalog.listBrowsableCategories();
   const users = getAllUsers();
   const currentUserId = await getCurrentUserId(request);
