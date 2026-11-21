@@ -8,26 +8,19 @@ import {
   CardFooter,
   CardHeader,
 } from "~/components/ui/card";
-import { CourseStatus } from "~/db/schema";
-import {
-  BookOpen,
-  GraduationCap,
-  Users,
-  ArrowRight,
-  User,
-  Moon,
-  Sun,
-  type LucideIcon,
-} from "lucide-react";
+import { BookOpen, ArrowRight, Check, User, Moon, Sun } from "lucide-react";
 import { CourseImage } from "~/components/course-image";
+import { CourseStack } from "~/components/course-stack";
 import { DevUI } from "~/components/dev-ui";
 import { getCurrentUserId, getDevCountry } from "~/lib/session";
 import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
-import { eq, like, and, or, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "~/db";
-import { courses, categories, users, modules, lessons } from "~/db/schema";
+import { users } from "~/db/schema";
 import { catalog } from "~/modules/catalog/index.server";
 import { catalogUrlForCategory } from "~/modules/catalog";
+
+const FEATURED_COURSE_LIMIT = 3;
 
 function getAllUsers() {
   return db.select().from(users).all();
@@ -37,118 +30,31 @@ function getUserById(id: number) {
   return db.select().from(users).where(eq(users.id, id)).get();
 }
 
-function buildCourseQuery(
-  search: string | null,
-  category: string | null,
-  status: CourseStatus | null,
-  sortBy: string | null,
-  limit: number,
-  offset: number
-) {
-  const conditions = [];
-
-  if (status) {
-    conditions.push(eq(courses.status, status));
-  }
-
-  if (search) {
-    const term = `%${search}%`;
-    conditions.push(
-      or(like(courses.title, term), like(courses.description, term))
-    );
-  }
-
-  const query = db
-    .select({
-      id: courses.id,
-      title: courses.title,
-      slug: courses.slug,
-      description: courses.description,
-      salesCopy: courses.salesCopy,
-      instructorId: courses.instructorId,
-      categoryId: courses.categoryId,
-      status: courses.status,
-      coverImageUrl: courses.coverImageUrl,
-      price: courses.price,
-      pppEnabled: courses.pppEnabled,
-      createdAt: courses.createdAt,
-      updatedAt: courses.updatedAt,
-      instructorName: users.name,
-      instructorAvatarUrl: users.avatarUrl,
-      categoryName: categories.name,
-    })
-    .from(courses)
-    .innerJoin(users, eq(courses.instructorId, users.id))
-    .innerJoin(categories, eq(courses.categoryId, categories.id));
-
-  if (category) {
-    conditions.push(eq(categories.slug, category));
-  }
-
-  const filtered =
-    conditions.length > 0 ? query.where(and(...conditions)) : query;
-
-  const sorted =
-    sortBy === "title"
-      ? filtered.orderBy(courses.title)
-      : sortBy === "oldest"
-        ? filtered.orderBy(courses.createdAt)
-        : filtered.orderBy(sql`${courses.createdAt} DESC`);
-
-  return sorted.limit(limit).offset(offset).all();
-}
-
-function getLessonCountForCourse(courseId: number) {
-  const courseModules = db
-    .select({ id: modules.id })
-    .from(modules)
-    .where(eq(modules.courseId, courseId))
-    .all();
-
-  if (courseModules.length === 0) return 0;
-
-  const count = db
-    .select({ count: sql<number>`count(*)` })
-    .from(lessons)
-    .where(or(...courseModules.map((m) => eq(lessons.moduleId, m.id))))
-    .get();
-
-  return count?.count ?? 0;
-}
-
-// `to` is optional so a tile whose target is not on the page (the Categories
-// tile when no category is browsable) renders as plain text, not a dead link.
-function StatTile({
+// `to` is optional so a stat whose target is not on the page (Categories when
+// no category is browsable) renders as plain text, not a dead link.
+function HeroStat({
   to,
-  icon: Icon,
   value,
   label,
 }: {
   to?: string;
-  icon: LucideIcon;
   value: ReactNode;
   label: string;
 }) {
   const body = (
     <>
-      <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
-        <Icon className="size-6 text-primary" />
-      </div>
-      <p className="text-2xl font-bold">{value}</p>
-      <p className="text-sm text-muted-foreground group-hover:text-primary">
+      <span className="block text-3xl font-bold tracking-tight">{value}</span>
+      <span className="text-sm text-muted-foreground group-hover:text-primary">
         {label}
-      </p>
+      </span>
     </>
   );
   return to ? (
-    <Link
-      to={to}
-      className="group rounded-lg p-4 text-center transition-colors hover:bg-background"
-    >
+    <Link to={to} className="group">
       {body}
     </Link>
   ) : (
-    <div className="p-4 text-center">{body}</div>
+    <div>{body}</div>
   );
 }
 
@@ -164,18 +70,8 @@ export function meta() {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const courses = buildCourseQuery(
-    null,
-    null,
-    CourseStatus.Published,
-    "newest",
-    50,
-    0
-  );
-  const featured = courses.slice(0, 3).map((course) => ({
-    ...course,
-    lessonCount: getLessonCountForCourse(course.id),
-  }));
+  const featured = catalog.listFeaturedCourses(FEATURED_COURSE_LIMIT);
+  const totalCourses = catalog.countPublishedCourses();
   const categories = catalog.listBrowsableCategories();
   const users = getAllUsers();
   const currentUserId = await getCurrentUserId(request);
@@ -185,7 +81,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   return {
     featuredCourses: featured,
-    totalCourses: courses.length,
+    totalCourses,
     categories,
     users: users.map((u) => ({ id: u.id, name: u.name, role: u.role })),
     currentUser: currentUser
@@ -230,7 +126,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           <Link to="/" className="text-xl font-bold tracking-tight">
             Cadence
           </Link>
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-3 sm:gap-6">
             <Link
               to="/courses"
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -256,7 +152,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               <>
                 <Link
                   to="/login"
-                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  className="whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Log In
                 </Link>
@@ -269,45 +165,67 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 py-24 text-center">
-        <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">
-          Learn to code,
-          <br />
-          <span className="text-muted-foreground">at your own pace</span>
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-          Structured courses built by experienced instructors. Track your
-          progress, take quizzes, and build real-world skills.
-        </p>
-        <div className="mt-10 flex items-center justify-center gap-4">
-          <Button asChild size="lg">
-            <Link to="/courses">
-              Browse Courses
-              <ArrowRight className="ml-2 size-4" />
-            </Link>
-          </Button>
-        </div>
-      </section>
-
-      <section className="border-y border-border bg-muted/50 py-16">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-6 sm:grid-cols-3">
-          <StatTile
-            to="/courses"
-            icon={BookOpen}
-            value={totalCourses}
-            label="Available Courses"
-          />
-          <StatTile
-            to={categories.length > 0 ? "#categories" : undefined}
-            icon={GraduationCap}
-            value={categories.length}
-            label="Categories"
-          />
-          <StatTile
-            icon={Users}
-            value="Self-paced"
-            label="Learn on your schedule"
-          />
+      <section className="relative overflow-hidden border-b border-border">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,var(--color-muted),transparent_60%)]"
+        />
+        <div className="mx-auto grid max-w-6xl items-center gap-16 px-6 py-20 lg:grid-cols-[1.15fr_1fr] lg:py-28">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-primary" />
+              Courses for developers
+            </p>
+            <h1 className="mt-6 text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+              Learn to code,
+              <br />
+              <span className="text-muted-foreground">at your own pace</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-lg text-muted-foreground">
+              Structured courses built by experienced instructors. Track your
+              progress, take quizzes, and build real-world skills.
+            </p>
+            <div className="mt-10 flex flex-wrap items-center gap-3">
+              <Button asChild size="lg">
+                <Link to="/courses">
+                  Browse Courses
+                  <ArrowRight className="ml-2 size-4" />
+                </Link>
+              </Button>
+              {currentUser ? (
+                <Button asChild size="lg" variant="outline">
+                  <Link to="/dashboard">Go to your dashboard</Link>
+                </Button>
+              ) : (
+                <Button asChild size="lg" variant="outline">
+                  <Link to="/signup">Sign up free</Link>
+                </Button>
+              )}
+            </div>
+            <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+              {["Self-paced", "Quizzes", "Progress tracking"].map((point) => (
+                <li key={point} className="flex items-center gap-2">
+                  <Check className="size-4 text-primary" />
+                  {point}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-12 flex gap-10 border-t border-border pt-8">
+              <HeroStat
+                to="/courses"
+                value={totalCourses}
+                label="Available Courses"
+              />
+              <HeroStat
+                to={categories.length > 0 ? "#categories" : undefined}
+                value={categories.length}
+                label="Categories"
+              />
+            </div>
+          </div>
+          {featuredCourses.length > 0 && (
+            <CourseStack courses={featuredCourses} />
+          )}
         </div>
       </section>
 
@@ -399,9 +317,47 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </section>
       )}
 
-      <footer className="border-t border-border py-8">
-        <div className="mx-auto max-w-6xl px-6 text-center text-sm text-muted-foreground">
-          Cadence
+      <footer className="border-t border-border bg-muted/40">
+        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-xs">
+            <Link to="/" className="text-lg font-bold tracking-tight">
+              Cadence
+            </Link>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Structured courses for developers, at your own pace.
+            </p>
+          </div>
+          <nav className="flex flex-wrap gap-x-8 gap-y-3 text-sm">
+            <Link
+              to="/courses"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Courses
+            </Link>
+            {currentUser ? (
+              <Link
+                to="/dashboard"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Log In
+                </Link>
+                <Link
+                  to="/signup"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </nav>
         </div>
       </footer>
 

@@ -1,7 +1,9 @@
 import { db } from "~/db";
 import { listBrowsableCategories, type Db } from "./lib/catalog";
+import { countPublishedCourses, listFeaturedCourses } from "./lib/featured";
 
 export type { BrowsableCategory } from "./lib/catalog";
+export type { FeaturedCourse } from "./lib/featured";
 
 /**
  * The course catalog bound to a database. The app uses `catalog`, which reads
@@ -15,6 +17,19 @@ export function createCatalog(database: Db) {
      */
     listBrowsableCategories() {
       return listBrowsableCategories(database);
+    },
+
+    /**
+     * The newest published courses, up to `limit`, each with its instructor,
+     * category and lesson count.
+     */
+    listFeaturedCourses(limit: number) {
+      return listFeaturedCourses(database, limit);
+    },
+
+    /** How many courses are published. Drafts and archived are not counted. */
+    countPublishedCourses() {
+      return countPublishedCourses(database);
     },
   };
 }
